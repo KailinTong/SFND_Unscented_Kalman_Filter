@@ -10,7 +10,7 @@ using Eigen::VectorXd;
  */
 UKF::UKF() {
   // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = false;
+  use_laser_ = true;
 
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
@@ -22,7 +22,7 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 6.5;
+  std_a_ = 2.5;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
   std_yawdd_ = 0.5;
@@ -93,8 +93,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
            time_us_ = meas_package.timestamp_;
            Prediction(dt);
            UpdateRadar(meas_package);
-           std::cout << x_ << std::endl;
-           std::cout << P_ << std::endl;
+//           std::cout << x_ << std::endl;
+//           std::cout << P_ << std::endl;
 
        }
 
@@ -103,8 +103,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
            time_us_ = meas_package.timestamp_;
            Prediction(dt);
            UpdateLidar(meas_package);
-           std::cout << x_ << std::endl;
-           std::cout << P_ << std::endl;
+//           std::cout << x_ << std::endl;
+//           std::cout << P_ << std::endl;
        }
    }
    else{
@@ -387,7 +387,19 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     // calculate cross correlation matrix
     Tc.fill(0.0);
     for(int i = 0; i < 2 * n_aug_ + 1; i++){
-        Tc = Tc + weights_(i) * (Xsig_pred_.col(i) - x_) * (Zsig.col(i) - z_pred).transpose();
+        // residual
+        VectorXd z_diff = Zsig.col(i) - z_pred;
+        // angle normalization important!
+        while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
+        while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+
+        // state difference
+        VectorXd x_diff = Xsig_pred_.col(i) - x_;
+        // angle normalization important!
+        while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+        while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+
+        Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
     }
     // calculate Kalman gain K;
     MatrixXd K = Tc * S.inverse();
